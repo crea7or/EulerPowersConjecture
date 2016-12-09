@@ -22,6 +22,16 @@
 *.la
 *.a
 *.lib
+Debug/
+Release/
+org/
+bin/
+ipch/
+EulerCpp/Debug/
+EulerCpp/Release/
+EulerCpp/org/
+EulerCpp/bin/
+EulerCpp/ipch/
 
 # Executables
 *.exe
