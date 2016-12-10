@@ -64,7 +64,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	ullong sum = 0;
 	counter = 0;
 	std::chrono::milliseconds speedTime;
-	double speed, hitsspeed;
+	ullong speed, hitsspeed;
 
 	uint ind0 = 0x02;
 	uint ind1 = 0x02;
@@ -127,8 +127,8 @@ int _tmain(int argc, _TCHAR* argv[])
 			cout << ind0 << "^5 ";
 
 			speedTime = std::chrono::duration_cast<milliseconds>(high_resolution_clock::now() - _start);
-			speed = ((double)counter / (double)speedTime.count());
-			hitsspeed = ((double)counter / (double)hashHit);
+			speed = counter / (ullong)speedTime.count();
+			hitsspeed = counter / hashHit;
 			// speed: iterations per millisecond, counter: total iterations, hitspeed: hash filter performance
 			cout << "s: " << speed << " i/ms itrs: " << counter << " hh: " << hitsspeed << "\r";
 		}
@@ -165,9 +165,9 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	std::chrono::milliseconds time = std::chrono::duration_cast<milliseconds>(high_resolution_clock::now() - _start);
 	cout << "\nDone in: " << ( double(time.count()) / 1000 ) << "s\n" << "Total iterations: " << counter << "\n";
-	speed = ((double)counter / (double)time.count());
+	speed = counter / (ullong)time.count();
 	cout << "Speed: " << speed << " itr/ms";
-	hitsspeed = ((double)counter / (double)hashHit);
+	hitsspeed = counter / (ullong)hashHit;
 	cout << "\nHash filter ratio: " << hitsspeed << "\n\nPress Enter...";
 
 	getchar();

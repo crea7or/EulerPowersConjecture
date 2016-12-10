@@ -34,8 +34,10 @@ EulerCpp/Release/
 EulerCpp/org/
 EulerCpp/bin/
 EulerCpp/ipch/
+EulerCpp/x64/
 
 # Executables
 *.exe
 *.out
 *.app
+*.opensdf
