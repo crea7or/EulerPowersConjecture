@@ -7,32 +7,37 @@
 // 27^5 + 84^5 + 110^5 + 133^5 = 144^5 (Lander & Parkin, 1966).
 //
 #include "stdafx.h"
+
+// uncomment to use 128bit values (25 times slower)
+// #define DECIUSE
+
+#include <boost/config.hpp> /* keep it first to prevent nasty warns in MSVC */
 #include <iostream>
-#include <algorithm>
+#include <boost/unordered_map.hpp>
+#include <boost/chrono.hpp>
+#include <boost/multiprecision/cpp_int.hpp>
 #include <stdlib.h>
-#include <vector>
-#include <unordered_map>
-#include <bitset>
-#include <map>
-#include <chrono>
 
-using namespace std;
-
-typedef std::chrono::high_resolution_clock high_resolution_clock;
-typedef std::chrono::milliseconds milliseconds;
+typedef boost::chrono::high_resolution_clock high_resolution_clock;
+typedef boost::chrono::milliseconds milliseconds;
 
 // number of ^5 powers to check
-const int N = 250; // max number is ~7131 for 64 bit values ( 18 446 744 073 709 551 616 )
+const int N = 150; // max number is ~7131 for 64 bit values ( 18 446 744 073 709 551 616 )
 // N=150 27 ^ 5 + 84 ^ 5 + 110 ^ 5 + 133 ^ 5 = 144 ^ 5 (Lander & Parkin, 1966).
-// const int N = 86000; // BigInteger is required to operate with these values (128 bit at least)
+// const int N = 86000; // 128 bit variables are required to operate with these values, uncomment define DECIUSE at start of this file
 // N=86000 for 55^5 + 3183^5 + 28969^5 + 85282^5 = 85359^5 (Frye, 2004). ( 85359^5 is 4 531 548 087 264 753 520 490 799 )
 
+#ifdef DECIUSE
+typedef boost::multiprecision::uint128_t ullong;
+#else
 typedef unsigned long long ullong;
+#endif
+
 typedef unsigned int uint;
 
 ullong counter = 0;
 ullong powers[N];
-std::unordered_map<ullong, uint> all;
+boost::unordered_map<ullong, uint> all;
 uint bitseta[256 * 256 * 8];
 
 ullong p5(ullong x)
@@ -63,7 +68,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	ullong hashHit = 0;
 	ullong sum = 0;
 	counter = 0;
-	std::chrono::milliseconds speedTime;
+	boost::chrono::milliseconds speedTime;
 	ullong speed, hitsspeed;
 
 	uint ind0 = 0x02;
@@ -71,7 +76,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	uint ind2 = 0x02;
 	uint ind3 = 0x02;
 
-	cout << "Building table of powers 1 - " << N << "^5\n";
+	std::cout << "Building table of powers 1 - " << N << "^5\n";
 
 	all.reserve( N +1 );
 	memset(bitseta, 0, sizeof(bitseta));
@@ -83,8 +88,8 @@ int _tmain(int argc, _TCHAR* argv[])
 		setBit64(powers[i]);
 	}
 
-	speedTime = std::chrono::duration_cast<milliseconds>(high_resolution_clock::now() - _start);
-	cout << "Table ready. Building time: " << ((double)speedTime.count() / 1000 ) << "s, starting search...\n\n";
+	speedTime = boost::chrono::duration_cast<milliseconds>(high_resolution_clock::now() - _start);
+	std::cout << "Table ready. Building time: " << ((double)speedTime.count() / 1000 ) << "s, starting search...\n\n";
 
 	while (true)
 	{
@@ -96,18 +101,18 @@ int _tmain(int argc, _TCHAR* argv[])
 			{
 				for (int i = 0; i < 78; ++i)
 				{
-					cout << " ";
+					std::cout << " ";
 				}
-				cout << "\r";
-				cout << "\n\nOk, found: ";
-				cout << ind3 << "^5 + ";
-				cout << ind2 << "^5 + ";
-				cout << ind1 << "^5 + ";
-				cout << ind0 << "^5 = ";
-				cout << all[sum] << "^5  ";
+				std::cout << "\r";
+				std::cout << "\n\nOk, found: ";
+				std::cout << ind3 << "^5 + ";
+				std::cout << ind2 << "^5 + ";
+				std::cout << ind1 << "^5 + ";
+				std::cout << ind0 << "^5 = ";
+				std::cout << all[sum] << "^5  ";
 
-				speedTime = std::chrono::duration_cast<milliseconds>(high_resolution_clock::now() - _start);
-				cout << "s: " << (double(speedTime.count()) / 1000) << " s. itr: " << counter << "\n\n";
+				speedTime = boost::chrono::duration_cast<milliseconds>(high_resolution_clock::now() - _start);
+				std::cout << "s: " << (double(speedTime.count()) / 1000) << " s. itr: " << counter << "\n\n";
 				//break;
 			}
 		}
@@ -118,19 +123,19 @@ int _tmain(int argc, _TCHAR* argv[])
 		{
 			for (int i = 0; i < 78; ++i)
 			{
-				cout << " ";
+				std::cout << " ";
 			}
-			cout << "\r";
-			cout << ind3 << "^5 ";
-			cout << ind2 << "^5 ";
-			cout << ind1 << "^5 ";
-			cout << ind0 << "^5 ";
+			std::cout << "\r";
+			std::cout << ind3 << "^5 ";
+			std::cout << ind2 << "^5 ";
+			std::cout << ind1 << "^5 ";
+			std::cout << ind0 << "^5 ";
 
-			speedTime = std::chrono::duration_cast<milliseconds>(high_resolution_clock::now() - _start);
+			speedTime = boost::chrono::duration_cast<milliseconds>(high_resolution_clock::now() - _start);
 			speed = counter / (ullong)speedTime.count();
 			hitsspeed = counter / hashHit;
 			// speed: iterations per millisecond, counter: total iterations, hitspeed: hash filter performance
-			cout << "s: " << speed << " i/ms itrs: " << counter << " hh: " << hitsspeed << "\r";
+			std::cout << "s: " << speed << " i/ms itrs: " << counter << " hh: " << hitsspeed << "\r";
 		}
 		// displaying some progress
 
@@ -155,20 +160,20 @@ int _tmain(int argc, _TCHAR* argv[])
 		{
 			for (int i = 0; i < 78; ++i)
 			{
-				cout << " ";
+				std::cout << " ";
 			}
-			cout << "\r";
-			cout << "\nEnded\n";
+			std::cout << "\r";
+			std::cout << "\nEnded\n";
 			break;
 		}
 	}
 
-	std::chrono::milliseconds time = std::chrono::duration_cast<milliseconds>(high_resolution_clock::now() - _start);
-	cout << "\nDone in: " << ( double(time.count()) / 1000 ) << "s\n" << "Total iterations: " << counter << "\n";
+	boost::chrono::milliseconds time = boost::chrono::duration_cast<milliseconds>(high_resolution_clock::now() - _start);
+	std::cout << "\nDone in: " << ( double(time.count()) / 1000 ) << "s\n" << "Total iterations: " << counter << "\n";
 	speed = counter / (ullong)time.count();
-	cout << "Speed: " << speed << " itr/ms";
+	std::cout << "Speed: " << speed << " itr/ms";
 	hitsspeed = counter / (ullong)hashHit;
-	cout << "\nHash filter ratio: " << hitsspeed << "\n\nPress Enter...";
+	std::cout << "\nHash filter ratio: " << hitsspeed << "\n\nPress Enter...";
 
 	getchar();
 
