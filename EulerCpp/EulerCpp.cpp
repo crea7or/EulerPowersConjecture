@@ -16,18 +16,40 @@
 // uncomment to use 128bit values by boost ( 25 times slower than uint64 )   ~17 000 its/ms
 // #define BOOST128USE
 
+
+// use boost or stl
+#define BOOSTUSE // stl otherwise
+
+// boost:413608 its/ms
+// std : 367906 its/ms
+// boost map is 10% faster
+
+
+#ifdef BOOSTUSE
 #include <boost/config.hpp> /* keep it first to prevent nasty warns in MSVC */
-#include <iostream>
 #include <boost/unordered_map.hpp>
 #include <boost/chrono.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
+#include <boost/container/vector.hpp>
+#else
+#include <unordered_map>
+#include <chrono>
+#include <vector>
+#endif
+
+#include <iostream>
 #include <stdlib.h>
 
+#ifdef BOOSTUSE
 typedef boost::chrono::high_resolution_clock high_resolution_clock;
 typedef boost::chrono::milliseconds milliseconds;
+#else
+typedef std::chrono::high_resolution_clock high_resolution_clock;
+typedef std::chrono::milliseconds milliseconds;
+#endif
 
 // number of ^5 powers to check
-const int N = 150; // max number is ~7131 for 64 bit values ( 18 446 744 073 709 551 616 )
+const int N = 500; // max number is ~7131 for 64 bit values ( 18 446 744 073 709 551 616 )
 // N=150 27 ^ 5 + 84 ^ 5 + 110 ^ 5 + 133 ^ 5 = 144 ^ 5 (Lander & Parkin, 1966).
 // const int N = 86000; // 128 bit variables are required to operate with these values, uncomment define UINT128USE or DECIUSE at start of this file
 // N=86000 for 55^5 + 3183^5 + 28969^5 + 85282^5 = 85359^5 (Frye, 2004). ( 85359^5 is 4 531 548 087 264 753 520 490 799 )
@@ -47,8 +69,16 @@ typedef unsigned __int64 uint64;
 
 
 ullong powers[N];
+
+#ifdef BOOSTUSE
 boost::unordered_map<ullong, uint32> all;
-uint32 bitseta[256 * 256 * 8];
+boost::container::vector<ullong> foundItems;
+#else
+std::unordered_map<ullong, uint32> all;
+std::vector<ullong> foundItems;
+#endif
+
+uint32 bitseta[2048];
 
 inline bool findBit64(ullong v)
 {
@@ -82,85 +112,103 @@ ullong p5(ullong x)
 	return x * x * x * x * x;
 }
 
+#ifdef BOOSTUSE
 // Hash function to make int128 work with boost::hash.
 std::size_t hash_value(uint128 const &input)
 {
 	boost::hash<unsigned long long> hasher;
 	return hasher(input.GetHash64());
 }
+#else
+namespace std
+{
+	template <>
+	struct hash<uint128>
+	{
+		std::size_t operator()(const uint128& input) const
+		{
+			using std::size_t;
+			using std::hash;
+			return hash<unsigned long long>()(input.GetHash64());
+		}
+	};
+}
+#endif
+
+milliseconds duration_cast_ms(high_resolution_clock::time_point minus)
+{
+#ifdef BOOSTUSE
+	return boost::chrono::duration_cast<milliseconds>(high_resolution_clock::now() - minus);
+#else
+	return std::chrono::duration_cast<milliseconds>(high_resolution_clock::now() - minus);
+#endif
+}
+
 
 int _tmain(int argc, _TCHAR* argv[])
 {
 
 	high_resolution_clock::time_point _start = high_resolution_clock::now();
 
-	uint64 hashHit = 0, counter = 0, speed = 0, hitsspeed = 0;
-
-	ullong sum = 0U;
-
-	boost::chrono::milliseconds speedTime;
-
-	uint32 ind0 = 0x02;
-	uint32 ind1 = 0x02;
-	uint32 ind2 = 0x02;
-	uint32 ind3 = 0x02;
+	milliseconds speedTime;
 
 	std::cout << "Building table of powers 1 - " << N << "^5\n";
 
 	all.reserve( N +1 );
 	memset(bitseta, 0, sizeof(bitseta));
 
-	uint128 sum128;
-	boost::multiprecision::uint128_t bsum128;
-	uint128* psum128 = new uint128();
-	boost::multiprecision::uint128_t* pbsum128 = new boost::multiprecision::uint128_t();
-
 	for (uint32 i = 0; i < N; ++i)
 	{
-		//*pbsum128 = i;
-		//bsum128 += (*pbsum128) * (*pbsum128) * (*pbsum128) * (*pbsum128) * (*pbsum128);
-		//*psum128 = i;
-		//sum128 += (*psum128) * (*psum128) * (*psum128) * (*psum128) * (*psum128);
-
 		powers[i] = p5(i);
-
-		//*psum128 = i;
-		//powers[i] = psum128->pow( 5 );
-
 		all[powers[i]] = i;
 		setBit64(powers[i]);
 	}
 
-	speedTime = boost::chrono::duration_cast<milliseconds>(high_resolution_clock::now() - _start);
+	speedTime = duration_cast_ms( _start );
 	std::cout << "Table ready. Building time: " << ((double)speedTime.count() / 1000 ) << "s, starting search...\n\n";
 
-	//getchar();
-	//return 0;
+
+	uint64 hashHit = 0, counter = 0, speed = 0, hitsspeed = 0;
+	ullong sum = 0U, baseSum = 0U;
+
+	uint32 ind0 = 0x02;
+	uint32 ind1 = 0x02;
+	uint32 ind2 = 0x02;
+	uint32 ind3 = 0x02;
+
+	// base sum without ind0 for performance
+	baseSum = powers[ind1] + powers[ind2] + powers[ind3];
 
 	while (true)
 	{
-		sum = powers[ind0] + powers[ind1] + powers[ind2] + powers[ind3];
+		sum = baseSum + powers[ind0];
 
 		if (findBit64(sum))
 		{
 			hashHit++;
 			if (all.find(sum) != all.end())
 			{
+				//foundItems
 				for (int i = 0; i < 78; ++i)
 				{
 					std::cout << " ";
 				}
+
+				// res
+				uint32 res = all[sum];
+
 				std::cout << "\r";
 				std::cout << "\n\nOk, found: ";
 				std::cout << ind3 << "^5 + ";
 				std::cout << ind2 << "^5 + ";
 				std::cout << ind1 << "^5 + ";
 				std::cout << ind0 << "^5 = ";
-				std::cout << all[sum] << "^5  ";
+				std::cout << res << "^5  ";
 
-				speedTime = boost::chrono::duration_cast<milliseconds>(high_resolution_clock::now() - _start);
+				foundItems.push_back(res);
+
+				speedTime = duration_cast_ms( _start );
 				std::cout << "s: " << (double(speedTime.count()) / 1000) << " s. itr: " << counter << "\n\n";
-				//break;
 			}
 		}
 
@@ -178,7 +226,7 @@ int _tmain(int argc, _TCHAR* argv[])
 			std::cout << ind1 << "^5 ";
 			std::cout << ind0 << "^5 ";
 
-			speedTime = boost::chrono::duration_cast<milliseconds>(high_resolution_clock::now() - _start);
+			speedTime = duration_cast_ms( _start);
 			speed = counter / (uint64)speedTime.count();
 			hitsspeed = counter / hashHit;
 			// speed: iterations per millisecond, counter: total iterations, hitspeed: hash filter performance
@@ -214,16 +262,19 @@ int _tmain(int argc, _TCHAR* argv[])
 			std::cout << "\nEnded\n";
 			break;
 		}
+
+		// refresh without ind0
+		baseSum = powers[ind1] + powers[ind2] + powers[ind3];
 	}
 
-	boost::chrono::milliseconds time = boost::chrono::duration_cast<milliseconds>(high_resolution_clock::now() - _start);
+	milliseconds time = duration_cast_ms(_start);
 	std::cout << "\nDone in: " << ( double(time.count()) / 1000 ) << "s\n" << "Total iterations: " << counter << "\n";
 	speed = counter / (uint64)time.count();
 	std::cout << "Speed: " << speed << " itr/ms";
 	hitsspeed = counter / hashHit;
 	std::cout << "\nHash filter ratio: " << hitsspeed << "\n\nPress Enter...";
 
-	getchar();
+	//getchar();
 
 	return 0;
 }

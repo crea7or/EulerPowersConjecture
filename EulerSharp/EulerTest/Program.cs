@@ -9,7 +9,7 @@
 // This is bruteforce algorithm to find a such counterexamples.
 //
 // Uncomment to use decimal
-// #define DECIUSE
+#define DECIUSE
 
 using System;
 using System.Collections.Generic;
@@ -45,7 +45,7 @@ namespace EulerTest
 		static Dictionary<UInt64, uint> all = new Dictionary<UInt64, uint>();
 #endif
 
-		static uint[] bitseta = new uint[ 256 * 256 * 8 ];
+		static uint[] bitseta = new uint[ 2048 ];
 
 #if ( DECIUSE)
 		static bool findBit64(decimal vd )
@@ -55,7 +55,7 @@ namespace EulerTest
 		static bool findBit64(UInt64 v )
 		{
 #endif
-			uint bitval = (((uint)((v >> 32) ^ v)) & 0x00FFFFFF);
+			uint bitval = (((uint)((v >> 32) ^ v) ^ ((uint)((v >> 48)))) & 0x0000FFFF);
 			uint b = ( uint )1 << (int)( bitval & ( uint )0x1F );
 			uint index = bitval >> 5;
 			return ((bitseta[index] & b) > 0);
@@ -69,7 +69,7 @@ namespace EulerTest
 		static void setBit64( UInt64 v )
 		{
 #endif
-			uint bitval = (((uint)((v >> 32) ^ v)) & 0x00FFFFFF);
+			uint bitval = (((uint)((v >> 32) ^ v) ^ ((uint)((v >> 48)))) & 0x0000FFFF);
 			uint b = ( uint )1 << ( int )( bitval & ( uint )0x1F );
 			uint index = bitval >> 5;
 			bitseta[index] = bitseta[index] | b;
@@ -95,10 +95,10 @@ namespace EulerTest
 
 #if ( DECIUSE)
 			decimal iterations = 0, hashHit = 0;
-			decimal sum = 0;
+			decimal sum = 0, preSum = 0;
 #else
 			UInt64 iterations = 0, hashHit = 0;
-			UInt64 sum = 0;
+			UInt64 sum = 0, preSum = 0;
 #endif
 
 			UInt64 u64 = 0;
@@ -108,16 +108,23 @@ namespace EulerTest
 			uint ind2 = 0x02;
 			uint ind3 = 0x02;
 
+
+			preSum = pa[ ind1 ] + pa[ ind2 ] + pa[ ind3 ];
+
 			while ( true )
 			{
 				iterations++;
 
-				sum = pa[ ind0 ] + pa[ ind1 ] + pa[ ind2 ] + pa[ ind3 ];
+				sum = preSum + pa[ ind0 ];
+
 				if ( findBit64( ( UInt64 )sum ) )
 				{
 					hashHit++;
 					if ( all.ContainsKey( sum ) )
 					{
+						Console.SetCursorPosition( 0, Console.CursorTop - 1 );
+						Console.Write( Enumerable.Repeat<char>( ' ', Console.BufferWidth ).ToArray() );
+						Console.SetCursorPosition( 0, Console.CursorTop - 1 );
 						Console.WriteLine( "Found: " + ind3 + " " + ind2 + " " + ind1 + " " + ind0 + " = " + all[ sum ] + " t: " + ( watch.Elapsed.TotalMilliseconds / 1000 ) + " sec. itr: " + iterations + "\n\n" );
 					}
 				}
@@ -156,6 +163,7 @@ namespace EulerTest
 				{
 					break;
 				}
+				preSum = pa[ ind1 ] + pa[ ind2 ] + pa[ ind3 ];
 			}
 
 			watch.Stop();
