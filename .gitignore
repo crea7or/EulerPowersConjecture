@@ -23,7 +23,6 @@
 *.a
 *.lib
 *.sdf
-*.asm
 Debug/
 Release/
 org/
