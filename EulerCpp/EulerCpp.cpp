@@ -12,7 +12,7 @@
 // Value define
 // uncomment to use unsigned int 64 bits. For N=500: ~440 000 000 its/s ( Max N=7100 )
 //#define UINT64USE
-// uncomment to use 128bit values by me ( 30% slower than uint64 ). For N=500: ~290 000 000 its/s(N=500)  ( Max N=50859008 )
+// uncomment to use 128bit values by me ( 30% slower than uint64 ). For N=500: ~300 000 000 its/s(N=500)  ( Max N=50859008 )
 #define UINT128USE
 // uncomment to use 128bit values by boost ( 17 times slower than uint64 ). For N=500: ~26 000 000 its/s(N=500) ( Max N=50859008 )
 //#define BOOST128USE
@@ -49,8 +49,9 @@ typedef std::chrono::high_resolution_clock high_resolution_clock;
 typedef std::chrono::milliseconds milliseconds;
 #endif
 
+// N=1 000 000 - 12600
 // number of ^5 powers to check
-const int N = 500; // max number is ~7131 for 64 bit values ( 18 446 744 073 709 551 616 )
+const int N = 86000; // max number is ~7131 for 64 bit values ( 18 446 744 073 709 551 616 )
 // Min N=150 for 27 ^ 5 + 84 ^ 5 + 110 ^ 5 + 133 ^ 5 = 144 ^ 5 (Lander & Parkin, 1966).
 // const int N = 86000; // 128 bit variables are required to operate with these values, uncomment define UINT128USE or DECIUSE at start of this file
 // Min N=86000 for 55^5 + 3183^5 + 28969^5 + 85282^5 = 85359^5 (Frye, 2004). ( 85359^5 is 4 531 548 087 264 753 520 490 799 )
@@ -65,9 +66,14 @@ typedef boost::multiprecision::uint128_t ullong;
 typedef unsigned long long ullong;
 #endif
 
+// search type
+// MAPUSE = unordered_map
+//#define SEARCHMAPUSE
+// BITSETVECTOR = bitmask + hash + vector
+#define SEARCHBITSETVECTOR
+
 typedef unsigned __int32 uint32;
 typedef unsigned __int64 uint64;
-
 
 ullong powers[N];
 
@@ -94,86 +100,84 @@ namespace std
 }
 #endif
 
+
+struct CompValue
+{
+	CompValue(ullong f, uint32 n)
+	{
+		fivePower = f;
+		number = n;
+	}
+	ullong fivePower;
+	uint32 number;
+};
+
+
 #ifdef BOOSTUSE
-boost::unordered_map<ullong, uint32> all;
-//boost::unordered_map<ullong, uint32> allCheck;
 boost::container::vector<uint32> foundItems;
-boost::container::vector<ullong> setMap[256 * 256];
+	#ifdef SEARCHMAPUSE
+	boost::unordered_map<ullong, uint32> all;
+	#endif
+	#ifdef SEARCHBITSETVECTOR
+	boost::container::vector<CompValue*> setMap[256 * 256 * 16];
+	#endif
 #else
-std::unordered_map<ullong, uint32> all;
 std::vector<uint32> foundItems;
-std::vector<ullong> setMap[256 * 256];
+	#ifdef SEARCHMAPUSE
+	std::unordered_map<ullong, uint32> all;
+	#endif
+	#ifdef SEARCHBITSETVECTOR
+	std::vector<CompValue*> setMap[256 * 256 * 16];
+	#endif
 #endif
 
-uint32 bitseta[2048];
+#ifdef SEARCHBITSETVECTOR
+// buffer size is effective up to N=1000000 (over unordered_map performance)
+uint32 bitseta[32768];
 
-inline bool findBit64(ullong v)
+inline uint32 findBit(ullong fivePower)
 {
 #ifdef UINT128USE
-	uint32 bitval = v.GetHash16();
+	//uint32 bitval = fivePower.GetHash16();
+	uint32 bitval = fivePower.GetHash32() & 0xFFFFF;
 #else
-	uint32 bitval = (((uint32)((v >> 32) ^ v)));
+	uint32 bitval = (((uint32)((fivePower >> 32) ^ fivePower)));
 	bitval = (((bitval >> 16) ^ bitval) & 0xFFFF);
 #endif
 
 	uint32 b = 1 << (bitval & 0x1F);
 	uint32 index = bitval >> 5;
-	return ((bitseta[index] & b) > 0);
-}
-
-inline bool findBit(ullong v)
-{
-#ifdef UINT128USE
-	uint32 bitval = v.GetHash16();
-#else
-	uint32 bitval = (((uint32)((v >> 32) ^ v)));
-	bitval = (((bitval >> 16) ^ bitval) & 0xFFFF);
-#endif
-
-	uint32 b = 1 << (bitval & 0x1F);
-	uint32 index = bitval >> 5;
-	//return ((bitseta[index] & b) > 0);
 
 	if((bitseta[index] & b) > 0)
 	{
 		for (auto itm : setMap[bitval])
 		{
-			if (itm == v)
+			if (itm->fivePower == fivePower)
 			{
-				return true;
+				return itm->number;
 			}
 		}
 	}
-	return false;
+	return 0;
 }
 
-inline void setBit64(ullong v)
+inline void setBit(ullong fivePower, uint32 number)
 {
 #ifdef UINT128USE
-	uint32 bitval = v.GetHash16();
+	//uint32 bitval = fivePower.GetHash16();
+	uint32 bitval = fivePower.GetHash32() & 0xFFFFF;
 #else
-	uint32 bitval = (((uint32)((v >> 32) ^ v)));
+	uint32 bitval = (((uint32)((fivePower >> 32) ^ fivePower)));
 	bitval = (((bitval >> 16) ^ bitval) & 0xFFFF);
 #endif
 
-	/* collision ratio
-	if (allCheck.find(bitval) != allCheck.end())
-	{
-		uint32 u = allCheck[bitval];
-		allCheck[bitval] = u + 1;
-	}
-	else
-	{
-		allCheck[bitval] = 1;
-	}
-	*/
-
-	setMap[bitval].push_back(v);
+	setMap[bitval].push_back(new CompValue(fivePower, number));
 
 	uint32 b = 1 << (bitval & 0x1F);
 	uint32 index = bitval >> 5;
 	bitseta[index] = bitseta[index] | b;
 }
+#endif
 
 ullong p5(ullong x)
 {
@@ -205,28 +209,25 @@ int _tmain(int argc, _TCHAR* argv[])
 	milliseconds speedTime;
 
 	std::cout << "Building table of powers 1 - " << N << "^5\n";
-
-	all.reserve( N +1 );
+#ifdef SEARCHBITSETVECTOR
 	memset(bitseta, 0, sizeof(bitseta));
+#endif
 
 	for (uint32 i = 0; i < N; ++i)
 	{
 		powers[i] = p5(i);
+#ifdef SEARCHMAPUSE
 		all[powers[i]] = i;
-		setBit64(powers[i]);
+#endif
+#ifdef SEARCHBITSETVECTOR
+		setBit(powers[i], i);
+#endif
 	}
-
-	/*
-	for (auto v : allCheck)
-	{
-		std::cout << v.second << "  ";
-	}
-	*/
 
 	speedTime = duration_cast_ms( _start );
 	std::cout << "Table ready. Building time: " << ((double)speedTime.count() / 1000 ) << "s, starting search...\n\n";
 
-	uint64 hashHit = 1, counter = 1, speed = 0, hitsspeed = 0;
+	uint64 counter = 1, speed = 0, hitsspeed = 0;
 	uint32 foundTest, foundVal;
 	ullong sum = 0U, baseSum = 0U;
 
@@ -242,18 +243,24 @@ int _tmain(int argc, _TCHAR* argv[])
 	{
 		sum = baseSum + powers[ind0];
 
-		if (findBit(sum))
-		//if (findBit64(sum))
+#ifdef SEARCHBITSETVECTOR
+		foundVal = findBit(sum); // comment when using with map
+		if (foundVal > 0) // comment when using with map
+#endif
 		{
-			hashHit++;
+#ifdef SEARCHMAPUSE
 			if (all.find(sum) != all.end())
+#endif
 			{
+#ifdef SEARCHMAPUSE
+				//foundItems
+				//only with map
+				foundVal = all[sum];
+#endif
+
 				// clear line
 				clearLine();
 				std::cout << "\r";
-
-				//foundItems
-				foundVal = all[sum];
 
 				for (auto ind : foundItems)
 				{
@@ -298,9 +305,8 @@ int _tmain(int argc, _TCHAR* argv[])
 
 			speedTime = duration_cast_ms( _start);
 			speed = counter / (uint64)speedTime.count();
-			hitsspeed = counter / hashHit;
-			// speed: iterations per millisecond, counter: total iterations, hitspeed: hash filter performance
-			std::cout << "s: " << speed << " i/ms itrs: " << counter << " hh: " << hitsspeed << "\r";
+			// speed: iterations per millisecond, counter: total iterations
+			std::cout << "s: " << speed << " i/ms itrs: " << counter << "\r";
 		}
 		// displaying some progress
 
@@ -334,11 +340,19 @@ int _tmain(int argc, _TCHAR* argv[])
 	milliseconds time = duration_cast_ms(_start);
 	std::cout << "\nDone in: " << ( double(time.count()) / 1000 ) << "s\n" << "Total iterations: " << counter << "\n";
 	speed = counter / (uint64)time.count();
-	std::cout << "Speed: " << speed << " itr/ms";
-	hitsspeed = counter / hashHit;
-	std::cout << "\nHash filter ratio: " << hitsspeed << "\n\nPress Enter...";
+	std::cout << "Speed: " << speed << " itr/ms\n";
 
 	//getchar();
+
+#ifdef SEARCHBITSETVECTOR
+	for (auto itm : setMap)
+	{
+		for (auto comp : itm)
+		{
+			delete comp;
+		}
+	}
+#endif
 
 	return 0;
 }
