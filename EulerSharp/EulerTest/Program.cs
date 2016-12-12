@@ -132,7 +132,7 @@ namespace EulerTest
 			Console.WriteLine( "Table ready. Building time: " + ( watch.Elapsed.TotalMilliseconds / 1000 ) + "sec. Starting search...\n\n");
 
 
-			UInt64 iterations = 0, hashHit = 0;
+			UInt64 iterations = 1, hashHit = 1;
 
 #if ( DECIUSE)
 			decimal sum = 0, preSum = 0;

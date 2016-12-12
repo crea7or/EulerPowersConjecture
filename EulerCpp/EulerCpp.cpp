@@ -9,13 +9,16 @@
 #include "stdafx.h"
 #include "uint128.h"
 
-// uncomment to use unsigned int 64 bits  ~410 000 000 its/s
-#define UINT64USE
-// uncomment to use 128bit values by me ( 30% slower than uint64 )  ~280 000 000 its/s
-//#define UINT128USE
-// uncomment to use 128bit values by boost ( 17 times slower than uint64 ) ~26 000 000 its/s
+// Value define
+// uncomment to use unsigned int 64 bits. For N=500: ~440 000 000 its/s ( Max N=7100 )
+//#define UINT64USE
+// uncomment to use 128bit values by me ( 30% slower than uint64 ). For N=500: ~290 000 000 its/s(N=500)  ( Max N=50859008 )
+#define UINT128USE
+// uncomment to use 128bit values by boost ( 17 times slower than uint64 ). For N=500: ~26 000 000 its/s(N=500) ( Max N=50859008 )
 //#define BOOST128USE
 
+
+// Lib define
 // use boost as library or stl
 #define BOOSTUSE // stl otherwise
 
@@ -48,9 +51,9 @@ typedef std::chrono::milliseconds milliseconds;
 
 // number of ^5 powers to check
 const int N = 500; // max number is ~7131 for 64 bit values ( 18 446 744 073 709 551 616 )
-// N=150 27 ^ 5 + 84 ^ 5 + 110 ^ 5 + 133 ^ 5 = 144 ^ 5 (Lander & Parkin, 1966).
+// Min N=150 for 27 ^ 5 + 84 ^ 5 + 110 ^ 5 + 133 ^ 5 = 144 ^ 5 (Lander & Parkin, 1966).
 // const int N = 86000; // 128 bit variables are required to operate with these values, uncomment define UINT128USE or DECIUSE at start of this file
-// N=86000 for 55^5 + 3183^5 + 28969^5 + 85282^5 = 85359^5 (Frye, 2004). ( 85359^5 is 4 531 548 087 264 753 520 490 799 )
+// Min N=86000 for 55^5 + 3183^5 + 28969^5 + 85282^5 = 85359^5 (Frye, 2004). ( 85359^5 is 4 531 548 087 264 753 520 490 799 )
 
 #ifdef UINT128USE
 typedef uint128 ullong;
@@ -67,49 +70,6 @@ typedef unsigned __int64 uint64;
 
 
 ullong powers[N];
-
-
-#ifdef BOOSTUSE
-boost::unordered_map<ullong, uint32> all;
-boost::container::vector<uint32> foundItems;
-#else
-std::unordered_map<ullong, uint32> all;
-std::vector<uint32> foundItems;
-#endif
-
-uint32 bitseta[2048];
-
-inline bool findBit64(ullong v)
-{
-#ifdef UINT128USE
-	uint32 bitval = v.GetHash16();
-#else
-	uint32 bitval = (((uint32)((v >> 32) ^ v)));
-	bitval = (((bitval >> 16) ^ bitval) & 0xFFFF);
-#endif
-
-	uint32 b = 1 << (bitval & 0x1F);
-	uint32 index = bitval >> 5;
-	return ((bitseta[index] & b) > 0);
-}
-
-inline void setBit64(ullong v)
-{
-#ifdef UINT128USE
-	uint32 bitval = v.GetHash16();
-#else
-	uint32 bitval = (((uint32)((v >> 32) ^ v)));
-	bitval = (((bitval >> 16) ^ bitval) & 0xFFFF);
-#endif
-	uint32 b = 1 << (bitval & 0x1F);
-	uint32 index = bitval >> 5;
-	bitseta[index] = bitseta[index] | b;
-}
-
-ullong p5(ullong x)
-{
-	return x * x * x * x * x;
-}
 
 #ifdef BOOSTUSE
 // Hash function to make int128 work with boost::hash.
@@ -134,6 +94,93 @@ namespace std
 }
 #endif
 
+#ifdef BOOSTUSE
+boost::unordered_map<ullong, uint32> all;
+//boost::unordered_map<ullong, uint32> allCheck;
+boost::container::vector<uint32> foundItems;
+boost::container::vector<ullong> setMap[256 * 256];
+#else
+std::unordered_map<ullong, uint32> all;
+std::vector<uint32> foundItems;
+std::vector<ullong> setMap[256 * 256];
+#endif
+
+uint32 bitseta[2048];
+
+inline bool findBit64(ullong v)
+{
+#ifdef UINT128USE
+	uint32 bitval = v.GetHash16();
+#else
+	uint32 bitval = (((uint32)((v >> 32) ^ v)));
+	bitval = (((bitval >> 16) ^ bitval) & 0xFFFF);
+#endif
+
+	uint32 b = 1 << (bitval & 0x1F);
+	uint32 index = bitval >> 5;
+	return ((bitseta[index] & b) > 0);
+}
+
+inline bool findBit(ullong v)
+{
+#ifdef UINT128USE
+	uint32 bitval = v.GetHash16();
+#else
+	uint32 bitval = (((uint32)((v >> 32) ^ v)));
+	bitval = (((bitval >> 16) ^ bitval) & 0xFFFF);
+#endif
+
+	uint32 b = 1 << (bitval & 0x1F);
+	uint32 index = bitval >> 5;
+	//return ((bitseta[index] & b) > 0);
+
+	if((bitseta[index] & b) > 0)
+	{
+		for (auto itm : setMap[bitval])
+		{
+			if (itm == v)
+			{
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+inline void setBit64(ullong v)
+{
+#ifdef UINT128USE
+	uint32 bitval = v.GetHash16();
+#else
+	uint32 bitval = (((uint32)((v >> 32) ^ v)));
+	bitval = (((bitval >> 16) ^ bitval) & 0xFFFF);
+#endif
+
+	/* collision ratio
+	if (allCheck.find(bitval) != allCheck.end())
+	{
+		uint32 u = allCheck[bitval];
+		allCheck[bitval] = u + 1;
+	}
+	else
+	{
+		allCheck[bitval] = 1;
+	}
+	*/
+
+	setMap[bitval].push_back(v);
+
+	uint32 b = 1 << (bitval & 0x1F);
+	uint32 index = bitval >> 5;
+	bitseta[index] = bitseta[index] | b;
+}
+
+ullong p5(ullong x)
+{
+	return x * x * x * x * x;
+}
+
+
 milliseconds duration_cast_ms(high_resolution_clock::time_point minus)
 {
 #ifdef BOOSTUSE
@@ -153,7 +200,6 @@ void clearLine()
 
 int _tmain(int argc, _TCHAR* argv[])
 {
-
 	high_resolution_clock::time_point _start = high_resolution_clock::now();
 
 	milliseconds speedTime;
@@ -170,10 +216,17 @@ int _tmain(int argc, _TCHAR* argv[])
 		setBit64(powers[i]);
 	}
 
+	/*
+	for (auto v : allCheck)
+	{
+		std::cout << v.second << "  ";
+	}
+	*/
+
 	speedTime = duration_cast_ms( _start );
 	std::cout << "Table ready. Building time: " << ((double)speedTime.count() / 1000 ) << "s, starting search...\n\n";
 
-	uint64 hashHit = 0, counter = 0, speed = 0, hitsspeed = 0;
+	uint64 hashHit = 1, counter = 1, speed = 0, hitsspeed = 0;
 	uint32 foundTest, foundVal;
 	ullong sum = 0U, baseSum = 0U;
 
@@ -189,7 +242,8 @@ int _tmain(int argc, _TCHAR* argv[])
 	{
 		sum = baseSum + powers[ind0];
 
-		if (findBit64(sum))
+		if (findBit(sum))
+		//if (findBit64(sum))
 		{
 			hashHit++;
 			if (all.find(sum) != all.end())
@@ -269,15 +323,8 @@ int _tmain(int argc, _TCHAR* argv[])
 		}
 		if (ind3 >= N)
 		{
-			for (int i = 0; i < 78; ++i)
-			{
-				std::cout << " ";
-			}
-			std::cout << "\r";
-			std::cout << "\nEnded\n";
 			break;
 		}
-
 		// refresh without ind0
 		baseSum = powers[ind1] + powers[ind2] + powers[ind3];
 	}
