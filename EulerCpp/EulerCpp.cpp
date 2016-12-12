@@ -9,21 +9,19 @@
 #include "stdafx.h"
 #include "uint128.h"
 
-// uncomment to use unsigned int 64 bits  ~310 000 its/ms
+// uncomment to use unsigned int 64 bits  ~410 000 000 its/s
 #define UINT64USE
-// uncomment to use 128bit values by me ( 40% slower than uint64 )  ~180 000 its/ms
-// #define UINT128USE
-// uncomment to use 128bit values by boost ( 25 times slower than uint64 )   ~17 000 its/ms
-// #define BOOST128USE
+// uncomment to use 128bit values by me ( 30% slower than uint64 )  ~280 000 000 its/s
+//#define UINT128USE
+// uncomment to use 128bit values by boost ( 17 times slower than uint64 ) ~26 000 000 its/s
+//#define BOOST128USE
 
-
-// use boost or stl
+// use boost as library or stl
 #define BOOSTUSE // stl otherwise
 
-// boost:413608 its/ms
-// std : 367906 its/ms
+// boost map: 413608 its/ms
+// std   mpa: 367906 its/ms
 // boost map is 10% faster
-
 
 #ifdef BOOSTUSE
 #include <boost/config.hpp> /* keep it first to prevent nasty warns in MSVC */
@@ -31,7 +29,7 @@
 #include <boost/chrono.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
 #include <boost/container/vector.hpp>
-#else
+#else // stl
 #include <unordered_map>
 #include <chrono>
 #include <vector>
@@ -70,12 +68,13 @@ typedef unsigned __int64 uint64;
 
 ullong powers[N];
 
+
 #ifdef BOOSTUSE
 boost::unordered_map<ullong, uint32> all;
-boost::container::vector<ullong> foundItems;
+boost::container::vector<uint32> foundItems;
 #else
 std::unordered_map<ullong, uint32> all;
-std::vector<ullong> foundItems;
+std::vector<uint32> foundItems;
 #endif
 
 uint32 bitseta[2048];
@@ -144,6 +143,13 @@ milliseconds duration_cast_ms(high_resolution_clock::time_point minus)
 #endif
 }
 
+void clearLine()
+{
+	for (int i = 0; i < 77; ++i)
+	{
+		std::cout << " ";
+	}
+}
 
 int _tmain(int argc, _TCHAR* argv[])
 {
@@ -167,8 +173,8 @@ int _tmain(int argc, _TCHAR* argv[])
 	speedTime = duration_cast_ms( _start );
 	std::cout << "Table ready. Building time: " << ((double)speedTime.count() / 1000 ) << "s, starting search...\n\n";
 
-
 	uint64 hashHit = 0, counter = 0, speed = 0, hitsspeed = 0;
+	uint32 foundTest, foundVal;
 	ullong sum = 0U, baseSum = 0U;
 
 	uint32 ind0 = 0x02;
@@ -188,27 +194,40 @@ int _tmain(int argc, _TCHAR* argv[])
 			hashHit++;
 			if (all.find(sum) != all.end())
 			{
-				//foundItems
-				for (int i = 0; i < 78; ++i)
-				{
-					std::cout << " ";
-				}
-
-				// res
-				uint32 res = all[sum];
-
+				// clear line
+				clearLine();
 				std::cout << "\r";
-				std::cout << "\n\nOk, found: ";
-				std::cout << ind3 << "^5 + ";
-				std::cout << ind2 << "^5 + ";
-				std::cout << ind1 << "^5 + ";
-				std::cout << ind0 << "^5 = ";
-				std::cout << res << "^5  ";
 
-				foundItems.push_back(res);
+				//foundItems
+				foundVal = all[sum];
 
-				speedTime = duration_cast_ms( _start );
-				std::cout << "s: " << (double(speedTime.count()) / 1000) << " s. itr: " << counter << "\n\n";
+				for (auto ind : foundItems)
+				{
+					foundTest = foundVal / ind;
+					if ((foundTest * ind) == foundVal)
+					{
+						// duplicate
+						foundVal = 0;
+						break;
+					}
+				}
+				if (foundVal != 0)
+				{
+					std::cout << "\n\nOk, found: ";
+					std::cout << ind3 << "^5 + ";
+					std::cout << ind2 << "^5 + ";
+					std::cout << ind1 << "^5 + ";
+					std::cout << ind0 << "^5 = ";
+					std::cout << foundVal << "^5  ";
+					// store to check it later
+					foundItems.push_back(foundVal);
+					speedTime = duration_cast_ms(_start);
+					std::cout << "s: " << (double(speedTime.count()) / 1000) << " s. itr: " << counter << "\n\n";
+				}
+				else
+				{
+					std::cout << "duplicate";
+				}
 			}
 		}
 
@@ -216,10 +235,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		counter++;
 		if ((counter & 0x3FFFFFF) == 0)
 		{
-			for (int i = 0; i < 78; ++i)
-			{
-				std::cout << " ";
-			}
+			clearLine();
 			std::cout << "\r";
 			std::cout << ind3 << "^5 ";
 			std::cout << ind2 << "^5 ";
@@ -232,7 +248,6 @@ int _tmain(int argc, _TCHAR* argv[])
 			// speed: iterations per millisecond, counter: total iterations, hitspeed: hash filter performance
 			std::cout << "s: " << speed << " i/ms itrs: " << counter << " hh: " << hitsspeed << "\r";
 		}
-
 		// displaying some progress
 
 		++ind0;
@@ -266,6 +281,8 @@ int _tmain(int argc, _TCHAR* argv[])
 		// refresh without ind0
 		baseSum = powers[ind1] + powers[ind2] + powers[ind3];
 	}
+
+	clearLine();
 
 	milliseconds time = duration_cast_ms(_start);
 	std::cout << "\nDone in: " << ( double(time.count()) / 1000 ) << "s\n" << "Total iterations: " << counter << "\n";
