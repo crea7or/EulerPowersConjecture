@@ -7,6 +7,10 @@
 // 27^5 + 84^5 + 110^5 + 133^5 = 144^5 (Lander & Parkin, 1966).
 //
 #include "stdafx.h"
+
+typedef unsigned __int32 uint32;
+typedef unsigned __int64 uint64;
+
 #include "uint128.h"
 
 // Value define
@@ -25,6 +29,32 @@
 // boost map: 413608 its/ms
 // std   mpa: 367906 its/ms
 // boost map is 10% faster
+
+// search type
+// MAPUSE = unordered_map
+//#define SEARCHMAPUSE
+// BITSETVECTOR = bitmask + hash + vector
+#define SEARCHBITSETVECTOR
+
+// SEARCHBITSETVECTOR size in bytes. Must be power of 2
+const uint32 SEARCHBITSETSIZE = 0x20000;
+// Do not modify next values
+const uint32 SEARCHBITSETSIZEARRAY = SEARCHBITSETSIZE / 4;
+const uint32 SEARCHBITSETSIZEMASK = ((SEARCHBITSETSIZE * 8) - 1);
+
+// Total memory consumption
+// for SEARCHMAPUSE
+// N in unordered_map + N array of values to hold powers
+//
+// for SEARCHBITSETVECTOR
+// ( SEARCHBITSETSIZE * 193) + N array of values to hold powers + N of CompValue
+
+// number of ^5 powers to check
+const int N = 500; // max number is ~7131 for 64 bit values ( 18 446 744 073 709 551 616 )
+// Min N=150 for 27 ^ 5 + 84 ^ 5 + 110 ^ 5 + 133 ^ 5 = 144 ^ 5 (Lander & Parkin, 1966).
+// const int N = 86000; // 128 bit variables are required to operate with these values, uncomment define UINT128USE or DECIUSE at start of this file
+// Min N=86000 for 55^5 + 3183^5 + 28969^5 + 85282^5 = 85359^5 (Frye, 2004). ( 85359^5 is 4 531 548 087 264 753 520 490 799 )
+
 
 #ifdef BOOSTUSE
 #include <boost/config.hpp> /* keep it first to prevent nasty warns in MSVC */
@@ -49,13 +79,6 @@ typedef std::chrono::high_resolution_clock high_resolution_clock;
 typedef std::chrono::milliseconds milliseconds;
 #endif
 
-// N=1 000 000 - 12600
-// number of ^5 powers to check
-const int N = 86000; // max number is ~7131 for 64 bit values ( 18 446 744 073 709 551 616 )
-// Min N=150 for 27 ^ 5 + 84 ^ 5 + 110 ^ 5 + 133 ^ 5 = 144 ^ 5 (Lander & Parkin, 1966).
-// const int N = 86000; // 128 bit variables are required to operate with these values, uncomment define UINT128USE or DECIUSE at start of this file
-// Min N=86000 for 55^5 + 3183^5 + 28969^5 + 85282^5 = 85359^5 (Frye, 2004). ( 85359^5 is 4 531 548 087 264 753 520 490 799 )
-
 #ifdef UINT128USE
 typedef uint128 ullong;
 #endif
@@ -66,16 +89,12 @@ typedef boost::multiprecision::uint128_t ullong;
 typedef unsigned long long ullong;
 #endif
 
-// search type
-// MAPUSE = unordered_map
-//#define SEARCHMAPUSE
-// BITSETVECTOR = bitmask + hash + vector
-#define SEARCHBITSETVECTOR
-
-typedef unsigned __int32 uint32;
-typedef unsigned __int64 uint64;
-
+//####################################
+// Array of powers
 ullong powers[N];
+//
+//####################################
+
 
 #ifdef BOOSTUSE
 // Hash function to make int128 work with boost::hash.
@@ -100,7 +119,6 @@ namespace std
 }
 #endif
 
-
 struct CompValue
 {
 	CompValue(ullong f, uint32 n)
@@ -112,14 +130,13 @@ struct CompValue
 	uint32 number;
 };
 
-
 #ifdef BOOSTUSE
 boost::container::vector<uint32> foundItems;
 	#ifdef SEARCHMAPUSE
 	boost::unordered_map<ullong, uint32> all;
 	#endif
 	#ifdef SEARCHBITSETVECTOR
-	boost::container::vector<CompValue*> setMap[256 * 256 * 16];
+	boost::container::vector<CompValue*> setMap[ SEARCHBITSETSIZE * 8 ];
 	#endif
 #else
 std::vector<uint32> foundItems;
@@ -127,22 +144,22 @@ std::vector<uint32> foundItems;
 	std::unordered_map<ullong, uint32> all;
 	#endif
 	#ifdef SEARCHBITSETVECTOR
-	std::vector<CompValue*> setMap[256 * 256 * 16];
+	std::vector<CompValue*> setMap[ SEARCHBITSETSIZE * 8 ];
 	#endif
 #endif
 
 #ifdef SEARCHBITSETVECTOR
-// buffer size is effective up to N=1000000 (over unordered_map performance)
-uint32 bitseta[32768];
+
+uint32 bitseta[SEARCHBITSETSIZEARRAY];
 
 inline uint32 findBit(ullong fivePower)
 {
 #ifdef UINT128USE
 	//uint32 bitval = fivePower.GetHash16();
-	uint32 bitval = fivePower.GetHash32() & 0xFFFFF;
+	uint32 bitval = fivePower.GetHash32() & SEARCHBITSETSIZEMASK;
 #else
 	uint32 bitval = (((uint32)((fivePower >> 32) ^ fivePower)));
-	bitval = (((bitval >> 16) ^ bitval) & 0xFFFF);
+	bitval = (((bitval >> 16) ^ bitval) & SEARCHBITSETSIZEMASK);
 #endif
 
 	uint32 b = 1 << (bitval & 0x1F);
@@ -165,10 +182,10 @@ inline void setBit(ullong fivePower, uint32 number)
 {
 #ifdef UINT128USE
 	//uint32 bitval = fivePower.GetHash16();
-	uint32 bitval = fivePower.GetHash32() & 0xFFFFF;
+	uint32 bitval = fivePower.GetHash32() & SEARCHBITSETSIZEMASK;
 #else
 	uint32 bitval = (((uint32)((fivePower >> 32) ^ fivePower)));
-	bitval = (((bitval >> 16) ^ bitval) & 0xFFFF);
+	bitval = (((bitval >> 16) ^ bitval) & SEARCHBITSETSIZEMASK);
 #endif
 
 	setMap[bitval].push_back(new CompValue(fivePower, number));
@@ -200,12 +217,12 @@ void clearLine()
 	{
 		std::cout << " ";
 	}
+	std::cout << "\r";
 }
 
 int _tmain(int argc, _TCHAR* argv[])
 {
 	high_resolution_clock::time_point _start = high_resolution_clock::now();
-
 	milliseconds speedTime;
 
 	std::cout << "Building table of powers 1 - " << N << "^5\n";
@@ -260,7 +277,6 @@ int _tmain(int argc, _TCHAR* argv[])
 
 				// clear line
 				clearLine();
-				std::cout << "\r";
 
 				for (auto ind : foundItems)
 				{
@@ -297,7 +313,6 @@ int _tmain(int argc, _TCHAR* argv[])
 		if ((counter & 0x3FFFFFF) == 0)
 		{
 			clearLine();
-			std::cout << "\r";
 			std::cout << ind3 << "^5 ";
 			std::cout << ind2 << "^5 ";
 			std::cout << ind1 << "^5 ";
