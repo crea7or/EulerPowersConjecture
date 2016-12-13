@@ -7,7 +7,6 @@
 // 27^5 + 84^5 + 110^5 + 133^5 = 144^5 (Lander & Parkin, 1966).
 //
 #include "stdafx.h"
-#include "xmmintrin.h"
 
 typedef unsigned __int32 uint32;
 typedef unsigned __int64 uint64;
@@ -27,15 +26,18 @@ typedef unsigned __int64 uint64;
 // use boost as library or stl
 #define BOOSTUSE // stl otherwise
 
+
 // boost map: 413608 its/ms
 // std   mpa: 367906 its/ms
 // boost map is 10% faster
 
-// search type
+// search type (select one)
 // MAPUSE = unordered_map
 //#define SEARCHMAPUSE
 // BITSETVECTOR = bitmask + hash + vector
-#define SEARCHBITSETVECTOR
+//#define SEARCHBITSETVECTOR
+// RANGE SEARCH
+#define SEARCHRANGE
 
 // SEARCHBITSETVECTOR size in bytes. Must be power of 2
 const uint32 SEARCHBITSETSIZE = 0x20000;
@@ -51,7 +53,7 @@ const uint32 SEARCHBITSETSIZEMASK = ((SEARCHBITSETSIZE * 8) - 1);
 // ( SEARCHBITSETSIZE * 193) + N array of values to hold powers + N of CompValue
 
 // number of ^5 powers to check
-const int N = 500; // max number is ~7131 for 64 bit values ( 18 446 744 073 709 551 616 )
+const int N = 86000; // max number is ~7131 for 64 bit values ( 18 446 744 073 709 551 616 )
 // Min N=150 for 27 ^ 5 + 84 ^ 5 + 110 ^ 5 + 133 ^ 5 = 144 ^ 5 (Lander & Parkin, 1966).
 // const int N = 86000; // 128 bit variables are required to operate with these values, uncomment define UINT128USE or DECIUSE at start of this file
 // Min N=86000 for 55^5 + 3183^5 + 28969^5 + 85282^5 = 85359^5 (Frye, 2004). ( 85359^5 is 4 531 548 087 264 753 520 490 799 )
@@ -197,6 +199,29 @@ inline void setBit(ullong fivePower, uint32 number)
 }
 #endif
 
+#ifdef SEARCHRANGE
+
+uint32 lastRangeIndex = 0;
+
+inline uint32 findInRange(ullong fivePower, uint32 startIndex)
+{
+	while (startIndex < N)
+	{
+		lastRangeIndex = startIndex;
+		if (powers[startIndex] > fivePower)
+		{
+			return 0;
+		}
+		if (powers[startIndex] == fivePower)
+		{
+			return startIndex;
+		}
+		++startIndex;
+	}
+	return 0;
+}
+#endif
+
 ullong p5(ullong x)
 {
 	return x * x * x * x * x;
@@ -253,6 +278,10 @@ int _tmain(int argc, _TCHAR* argv[])
 	uint32 ind2 = 0x02;
 	uint32 ind3 = 0x02;
 
+#ifdef SEARCHRANGE
+	lastRangeIndex = 0x02;
+#endif
+
 	// base sum without ind0 for performance
 	baseSum = powers[ind1] + powers[ind2] + powers[ind3];
 
@@ -260,18 +289,19 @@ int _tmain(int argc, _TCHAR* argv[])
 	{
 		sum = baseSum + powers[ind0];
 
+#ifdef SEARCHRANGE
+		foundVal = findInRange( sum, lastRangeIndex);
+		if (foundVal > 0)
+#endif
+
 #ifdef SEARCHBITSETVECTOR
-		foundVal = findBit(sum); // comment when using with map
-		if (foundVal > 0) // comment when using with map
+		foundVal = findBit(sum);
+		if (foundVal > 0)
 #endif
 		{
 #ifdef SEARCHMAPUSE
 			if (all.find(sum) != all.end())
-#endif
 			{
-#ifdef SEARCHMAPUSE
-				//foundItems
-				//only with map
 				foundVal = all[sum];
 #endif
 				// clear line
@@ -302,7 +332,9 @@ int _tmain(int argc, _TCHAR* argv[])
 				{
 					std::cout << "duplicate";
 				}
+#ifdef SEARCHMAPUSE
 			}
+#endif
 		}
 
 		// displaying some progress
@@ -329,6 +361,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		}
 		else
 		{
+			//lastRangeIndex = 0x02;
 			ind0 = ++ind1;
 		}
 		if (ind1 >= N)
@@ -343,6 +376,21 @@ int _tmain(int argc, _TCHAR* argv[])
 		{
 			break;
 		}
+#ifdef SEARCHRANGE
+		lastRangeIndex = 0x02;
+		if (ind1 > lastRangeIndex)
+		{
+			lastRangeIndex = ind1;
+		}
+		if (ind2 > lastRangeIndex)
+		{
+			lastRangeIndex = ind2;
+		}
+		if (ind3 > lastRangeIndex)
+		{
+			lastRangeIndex = ind3;
+		}
+#endif
 		// refresh without ind0
 		baseSum = powers[ind1] + powers[ind2] + powers[ind3];
 	}

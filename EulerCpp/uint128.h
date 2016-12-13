@@ -5,8 +5,6 @@ typedef unsigned __int32 uint32;
 
 #pragma warning(disable : 4244)
 
-
-
 // enable multiply via BMI2: https://en.wikipedia.org/wiki/Bit_Manipulation_Instruction_Sets
 // https://msdn.microsoft.com/en-us/library/hh977022.aspx
 // otherwise regular mul via ASM x64
@@ -80,6 +78,42 @@ public:
 		l = v;
 		return *this;
 	}
+
+	bool operator<(const uint128& v) const
+	{
+		if (h < v.h)
+		{
+			return true;
+		}
+		else if (h > v.h)
+		{
+			return false;
+		}
+		if (l < v.l)
+		{
+			return true;
+		}
+		return false;
+	}
+
+
+	bool operator>(const uint128& v) const
+	{
+		if (h > v.h)
+		{
+			return true;
+		}
+		else if (h < v.h)
+		{
+			return false;
+		}
+		if (l > v.l)
+		{
+			return true;
+		}
+		return false;
+	}
+
 
 	friend uint128 operator*(const uint128& s, const uint128& d);
 	friend uint128 operator+(const uint128& s, const uint128& d);
