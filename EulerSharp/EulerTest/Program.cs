@@ -20,6 +20,17 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Dirichlet.Numerics;
+using System.Runtime.CompilerServices;
+
+#if ( DECIUSE)
+using mainType = System.Decimal;
+#endif
+#if ( UINT64USE)
+using mainType = System.UInt64;
+#endif
+#if ( UINT128USE)
+using mainType = Dirichlet.Numerics.UInt128;
+#endif
 
 
 namespace EulerTest
@@ -27,80 +38,92 @@ namespace EulerTest
 	class Program
 	{
 		// number of ^5 powers to check
-		const int N = 290; // max number is ~7131 for 64 bit values ( 18 446 744 073 709 551 616 )
+		const int N = 500; // max number is ~7131 for 64 bit values ( 18 446 744 073 709 551 616 )
 		// N=150 27 ^ 5 + 84 ^ 5 + 110 ^ 5 + 133 ^ 5 = 144 ^ 5 (Lander & Parkin, 1966).
-		// const int N = 86000
+		// const int N = 86000 (uint128 or decimal only)
 		// N=86000 for 55^5 + 3183^5 + 28969^5 + 85282^5 = 85359^5 (Frye, 2004). ( 85359^5 is 4 531 548 087 264 753 520 490 799 )
-		// Average speed with decimal type about  ~30 000 000 tests per second.
-		// Average speed with Uint128 type about ~100 000 000 tests per second.
-		// Average speed with Uint64  type about ~200 000 000 tests per second.
+		// Average speed with decimal type about  ~39 000 000 tests per second.
+		// Average speed with Uint128 type about ~140 000 000 tests per second.
+		// Average speed with Uint64  type about ~280 000 000 tests per second.
+
+		const UInt32 SEARCHBITSETSIZE = 0x20000; // bytes
 
 		static List<uint> foundItms = new List<uint>();
 
-#if ( DECIUSE)
-		static decimal p5( decimal x )
+		/* slower in c#
+		struct CompValue
+		{
+			public CompValue( mainType f, UInt32 n )
+			{
+				fivePower = f;
+				number = n;
+			}
+			public mainType fivePower;
+			public UInt32 number;
+		};
+		static List< CompValue >[] setMap = new List< CompValue >[ 65536 ];
+		*/
+		static mainType p5( mainType x )
 		{
 			return x * x * x * x * x;
 		}
-		static decimal[] pa = new decimal[ N ];
-		static Dictionary<decimal, uint> all = new Dictionary<decimal, uint>();
-#endif
-#if ( UINT64USE)
-		static UInt64 p5( UInt64 x )
-		{
-			return x * x * x * x * x;
-		}
-		static UInt64[] pa = new UInt64[ N ];
-		static Dictionary<UInt64, uint> all = new Dictionary<UInt64, uint>();
-#endif
-#if ( UINT128USE)
-		static UInt128 p5( UInt128 x )
-		{
-			return x * x * x * x * x;
-		}
-		static UInt128[] pa = new UInt128[ N ];
-		static Dictionary<UInt128, uint> all = new Dictionary<UInt128, uint>();
-#endif
+		static mainType[] pa = new mainType[ N ];
+		static Dictionary< mainType, uint> all = new Dictionary< mainType, uint>();
+		static uint[] bitseta = new uint[ SEARCHBITSETSIZE / 4 ];
 
-		static uint[] bitseta = new uint[ 2048 ];
-
-#if ( DECIUSE)
-		static bool findBit64(decimal vd )
+		[MethodImpl( MethodImplOptions.AggressiveInlining )]
+		static bool findBit( mainType v )
 		{
-			UInt64 v = (UInt64)vd;
-#endif
-#if ( UINT64USE)
-		static bool findBit64(UInt64 v )
-		{
-#endif
-#if ( UINT128USE)
-		static bool findBit64(UInt128 v )
-		{
-#endif
-			uint bitval = ( ( uint )v.GetHashCode() ) & 0x0000FFFF;
+			uint bitval = ( ( uint )v.GetHashCode() ) & ( SEARCHBITSETSIZE - 1 );
 			uint b = ( uint )1 << (int)( bitval & ( uint )0x1F );
 			uint index = bitval >> 5;
 			return ((bitseta[index] & b) > 0);
 		}
 
-#if ( DECIUSE)
-		static void setBit64( decimal vd )
+		[MethodImpl( MethodImplOptions.AggressiveInlining )]
+		static void setBit( mainType v )
 		{
-			UInt64 v = ( UInt64 )vd;
-#endif
-#if ( UINT64USE)
-		static void setBit64( UInt64 v )
-		{
-#endif
-#if ( UINT128USE)
-		static void setBit64( UInt128 v )
-		{
-#endif
-			uint bitval = (( uint )v.GetHashCode()) & 0x0000FFFF;
+			uint bitval = ( ( uint )v.GetHashCode() ) & ( SEARCHBITSETSIZE - 1 );
 			uint b = ( uint )1 << ( int )( bitval & ( uint )0x1F );
 			uint index = bitval >> 5;
 			bitseta[index] = bitseta[index] | b;
 		}
+
+		/* slower in c#
+		static void setBit( mainType fivePower, UInt32 number )
+		{
+			uint bitval = (( uint )fivePower.GetHashCode()) & 0x0000FFFF;
+			uint b = ( uint )1 << ( int )( bitval & ( uint )0x1F );
+
+			if ( setMap[ bitval ] == null )
+			{
+				setMap[ bitval ] = new List<CompValue>();
+			}
+			setMap[ bitval ].Add( new CompValue( fivePower, number ));
+
+			uint index = bitval >> 5;
+			bitseta[index] = bitseta[index] | b;
+		}
+
+		static UInt32 findBit( mainType v )
+		{
+			uint bitval = ( ( uint )v.GetHashCode() ) & 0x0000FFFF;
+			uint b = ( uint )1 << (int)( bitval & ( uint )0x1F );
+			uint index = bitval >> 5;
+
+			if((bitseta[index] & b) > 0)
+			{
+				foreach(var itm in setMap[bitval])
+				{
+					if (itm.fivePower == v)
+					{
+						return itm.number;
+					}
+				}
+			}
+			return 0;
+		}
+		*/
 
 		static void clearLine()
 		{
@@ -117,39 +140,20 @@ namespace EulerTest
 
 			for ( uint i = 0; i < N; ++i )
 			{
-#if ( DECIUSE)
-				pa[ i ] = p5( ( decimal )i );
-#endif
-#if ( UINT64USE)
-				pa[ i ] = p5( ( UInt64 )i );
-#endif
-#if ( UINT128USE)
-				pa[ i ] = p5( ( UInt128 )i );
-#endif
+				pa[ i ] = p5( i );
 				all[ pa[ i ] ] = ( uint )i;
-				setBit64( (UInt64)pa[ i ] );
+				setBit( pa[ i ] );
 			}
 			Console.WriteLine( "Table ready. Building time: " + ( watch.Elapsed.TotalMilliseconds / 1000 ) + "sec. Starting search...\n\n");
 
-
 			UInt64 iterations = 1, hashHit = 1;
+			mainType sum = 0, preSum = 0;
 
-#if ( DECIUSE)
-			decimal sum = 0, preSum = 0;
-#endif
-#if ( UINT64USE)
-			UInt64 sum = 0, preSum = 0;
-#endif
-#if ( UINT128USE)
-			UInt128 sum = 0, preSum = 0;
-#endif
-
-			uint ind0 = 0x02;
-			uint ind1 = 0x02;
-			uint ind2 = 0x02;
-			uint ind3 = 0x02;
-			uint foundIndex = 0;
-			uint testIndex;
+			UInt32 ind0 = 0x02;
+			UInt32 ind1 = 0x02;
+			UInt32 ind2 = 0x02;
+			UInt32 ind3 = 0x02;
+			UInt32 foundIndex = 0;
 
 			preSum = pa[ ind1 ] + pa[ ind2 ] + pa[ ind3 ];
 
@@ -159,7 +163,7 @@ namespace EulerTest
 
 				sum = preSum + pa[ ind0 ];
 
-				if ( findBit64( ( UInt64 )sum ) )
+				if ( findBit( sum ) )
 				{
 					hashHit++;
 					if ( all.ContainsKey( sum ) )
@@ -167,8 +171,7 @@ namespace EulerTest
 						foundIndex = all[ sum ];
 						foreach ( uint index in foundItms )
 						{
-							testIndex = ( foundIndex / index );
-							if (( testIndex * index ) == foundIndex )
+							if (( foundIndex % index ) == 0 )
 							{
 								foundIndex = 0;
 								break;
@@ -191,10 +194,10 @@ namespace EulerTest
 
 
 				// displaying some progress
-				if ( ( iterations & 0x3FFFFF ) == 0 )
+				if ( ( iterations & 0x7FFFFF ) == 0 )
 				{
 					clearLine();
-					Console.WriteLine( ind3 + "^5 " + ind2 + "^5 " + ind1 + "^5 " + ind0 + "  t: " + ( watch.Elapsed.TotalMilliseconds / 1000 ) + " sec. itr: " + iterations + " sp: " + ( ( UInt64 )iterations / ( UInt64 )watch.Elapsed.TotalMilliseconds ) + " hh: " + ( (UInt64)iterations / ( UInt64 )hashHit ));
+					Console.WriteLine( ind3 + "^5 " + ind2 + "^5 " + ind1 + "^5 " + ind0 + "  t: " + ( watch.Elapsed.TotalMilliseconds / 1000 ) + " sec. itr: " + iterations + " sp: " + (iterations / ( UInt64 )watch.Elapsed.TotalMilliseconds ) + " hh: " + ( iterations / hashHit ));
 				}
 				// displaying some progress
 
@@ -224,7 +227,7 @@ namespace EulerTest
 
 			watch.Stop();
 			clearLine();
-			Console.WriteLine( "\nDone in: " + ( watch.Elapsed.TotalMilliseconds / 1000 ) + " sec. itr: " + iterations + " sp: " + ( ( UInt64 )iterations / ( UInt64 )watch.Elapsed.TotalMilliseconds ) + " hh: " + ( ( UInt64 )iterations / ( UInt64 )hashHit ) );
+			Console.WriteLine( "\nDone in: " + ( watch.Elapsed.TotalMilliseconds / 1000 ) + " sec. itr: " + iterations + " sp: " + ( iterations / ( UInt64 )watch.Elapsed.TotalMilliseconds ) + " hh: " + ( iterations / ( UInt64 )hashHit ) );
 
 			//Console.WriteLine( "Press Enter to close\n" );
 			//Console.Read();

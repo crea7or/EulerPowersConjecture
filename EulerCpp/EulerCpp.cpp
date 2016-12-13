@@ -7,6 +7,7 @@
 // 27^5 + 84^5 + 110^5 + 133^5 = 144^5 (Lander & Parkin, 1966).
 //
 #include "stdafx.h"
+#include "xmmintrin.h"
 
 typedef unsigned __int32 uint32;
 typedef unsigned __int64 uint64;
@@ -201,7 +202,6 @@ ullong p5(ullong x)
 	return x * x * x * x * x;
 }
 
-
 milliseconds duration_cast_ms(high_resolution_clock::time_point minus)
 {
 #ifdef BOOSTUSE
@@ -245,7 +245,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	std::cout << "Table ready. Building time: " << ((double)speedTime.count() / 1000 ) << "s, starting search...\n\n";
 
 	uint64 counter = 1, speed = 0, hitsspeed = 0;
-	uint32 foundTest, foundVal;
+	uint32 foundVal;
 	ullong sum = 0U, baseSum = 0U;
 
 	uint32 ind0 = 0x02;
@@ -274,14 +274,11 @@ int _tmain(int argc, _TCHAR* argv[])
 				//only with map
 				foundVal = all[sum];
 #endif
-
 				// clear line
 				clearLine();
-
 				for (auto ind : foundItems)
 				{
-					foundTest = foundVal / ind;
-					if ((foundTest * ind) == foundVal)
+					if ((foundVal % ind ) == 0 )
 					{
 						// duplicate
 						foundVal = 0;
