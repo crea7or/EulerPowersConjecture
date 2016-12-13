@@ -83,18 +83,18 @@ typedef std::chrono::milliseconds milliseconds;
 #endif
 
 #ifdef UINT128USE
-typedef uint128 ullong;
+typedef uint128 mainType;
 #endif
 #ifdef BOOST128USE
-typedef boost::multiprecision::uint128_t ullong;
+typedef boost::multiprecision::uint128_t mainType;
 #endif
 #ifdef UINT64USE
-typedef unsigned long long ullong;
+typedef unsigned long long mainType;
 #endif
 
 //####################################
 // Array of powers
-ullong powers[N];
+mainType powers[N];
 //
 //####################################
 
@@ -124,19 +124,19 @@ namespace std
 
 struct CompValue
 {
-	CompValue(ullong f, uint32 n)
+	CompValue(mainType f, uint32 n)
 	{
 		fivePower = f;
 		number = n;
 	}
-	ullong fivePower;
+	mainType fivePower;
 	uint32 number;
 };
 
 #ifdef BOOSTUSE
 boost::container::vector<uint32> foundItems;
 	#ifdef SEARCHMAPUSE
-	boost::unordered_map<ullong, uint32> all;
+	boost::unordered_map<mainType, uint32> all;
 	#endif
 	#ifdef SEARCHBITSETVECTOR
 	boost::container::vector<CompValue*> setMap[ SEARCHBITSETSIZE * 8 ];
@@ -144,7 +144,7 @@ boost::container::vector<uint32> foundItems;
 #else
 std::vector<uint32> foundItems;
 	#ifdef SEARCHMAPUSE
-	std::unordered_map<ullong, uint32> all;
+	std::unordered_map<mainType, uint32> all;
 	#endif
 	#ifdef SEARCHBITSETVECTOR
 	std::vector<CompValue*> setMap[ SEARCHBITSETSIZE * 8 ];
@@ -155,7 +155,7 @@ std::vector<uint32> foundItems;
 
 uint32 bitseta[SEARCHBITSETSIZEARRAY];
 
-inline uint32 findBit(ullong fivePower)
+inline uint32 findBit(mainType fivePower)
 {
 #ifdef UINT128USE
 	//uint32 bitval = fivePower.GetHash16();
@@ -181,7 +181,7 @@ inline uint32 findBit(ullong fivePower)
 	return 0;
 }
 
-inline void setBit(ullong fivePower, uint32 number)
+inline void setBit(mainType fivePower, uint32 number)
 {
 #ifdef UINT128USE
 	//uint32 bitval = fivePower.GetHash16();
@@ -203,7 +203,7 @@ inline void setBit(ullong fivePower, uint32 number)
 
 uint32 lastRangeIndex = 0;
 
-inline uint32 findInRange(ullong fivePower, uint32 startIndex)
+inline uint32 findInRange(mainType fivePower, uint32 startIndex)
 {
 	while (startIndex < N)
 	{
@@ -222,7 +222,7 @@ inline uint32 findInRange(ullong fivePower, uint32 startIndex)
 }
 #endif
 
-ullong p5(ullong x)
+mainType p5(mainType x)
 {
 	return x * x * x * x * x;
 }
@@ -271,7 +271,7 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	uint64 counter = 1, speed = 0, hitsspeed = 0;
 	uint32 foundVal;
-	ullong sum = 0U, baseSum = 0U;
+	mainType sum = 0U, baseSum = 0U;
 
 	uint32 ind0 = 0x02;
 	uint32 ind1 = 0x02;
